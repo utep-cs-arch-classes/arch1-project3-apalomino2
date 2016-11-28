@@ -10,62 +10,35 @@
 #include <libTimer.h>
 #include <lcdutils.h>
 #include <lcddraw.h>
-#include <p2switches.h>
 #include <shape.h>
 #include <abCircle.h>
 
 #define GREEN_LED BIT6
+#define RED_LED BIT0
 
 
-AbRect rect10 = {abRectGetBounds, abRectCheck, {10,10}}; /**< 10x10 rectangle */
-AbRArrow rightArrow = {abRArrowGetBounds, abRArrowCheck, 30};
+AbRect paddle = {abRectGetBounds, abRectCheck, {10,2}};
+AbRect rect0 = {abRectGetBounds, abRectCheck, {10,4}};
 
 AbRectOutline fieldOutline = {	/* playing field */
   abRectOutlineGetBounds, abRectOutlineCheck,   
-  {screenWidth/2 - 10, screenHeight/2 - 10}
+  {screenWidth/2 - 5, screenHeight/2 - 10}
 };
 
-Layer layer4 = {
-  (AbShape *)&rightArrow,
-  {(screenWidth/2)+10, (screenHeight/2)+5}, /**< bit below & right of center */
-  {0,0}, {0,0},				    /* last & next pos */
-  COLOR_PINK,
-  0
-};
-  
+Layer ballLayer = {(AbShape *)&circle3, {screenWidth/2, screenHeight/2}, {0,0}, {0,0}, COLOR_VIOLET, 0};
+Layer fieldLayer = {(AbShape *) &fieldOutline, {screenWidth/2, screenHeight/2}, {0,0}, {0,0}, COLOR_BLUE, &ballLayer};
+Layer paddleLayer = {(AbShape *)&paddle, {screenWidth/2, screenHeight-15}, {0,0}, {0,0}, COLOR_BLUE, &fieldLayer};
 
-Layer layer3 = {		/**< Layer with an orange circle */
-  (AbShape *)&circle8,
-  {(screenWidth/2)+10, (screenHeight/2)+5}, /**< bit below & right of center */
-  {0,0}, {0,0},				    /* last & next pos */
-  COLOR_VIOLET,
-  &layer4,
-};
-
-
-Layer fieldLayer = {		/* playing field as a layer */
-  (AbShape *) &fieldOutline,
-  {screenWidth/2, screenHeight/2},/**< center */
-  {0,0}, {0,0},				    /* last & next pos */
-  COLOR_BLACK,
-  &layer3
-};
-
-Layer layer1 = {		/**< Layer with a red square */
-  (AbShape *)&rect10,
-  {screenWidth/2, screenHeight/2}, /**< center */
-  {0,0}, {0,0},				    /* last & next pos */
-  COLOR_RED,
-  &fieldLayer,
-};
-
-Layer layer0 = {		/**< Layer with an orange circle */
-  (AbShape *)&circle14,
-  {(screenWidth/2)+10, (screenHeight/2)+5}, /**< bit below & right of center */
-  {0,0}, {0,0},				    /* last & next pos */
-  COLOR_ORANGE,
-  &layer1,
-};
+Layer layer9 = {(AbShape *)&rect0, {35, 18}, {0,0}, {0,0}, COLOR_BLUE, &paddleLayer};
+Layer layer8 = {(AbShape *)&rect0, {60, 18}, {0,0}, {0,0}, COLOR_RED, &layer9};
+Layer layer7 = {(AbShape *)&rect0, {85, 18}, {0,0}, {0,0}, COLOR_GREEN, &layer8};
+Layer layer6 = {(AbShape *)&rect0, {25, 28}, {0,0}, {0,0}, COLOR_ORANGE, &layer7};
+Layer layer5 = {(AbShape *)&rect0, {50, 28}, {0,0}, {0,0}, COLOR_VIOLET, &layer6};
+Layer layer4 = {(AbShape *)&rect0, {75, 28}, {0,0}, {0,0}, COLOR_BLUE, &layer5};
+Layer layer3 = {(AbShape *)&rect0, {100,28}, {0,0}, {0,0}, COLOR_RED, &layer4};
+Layer layer2 = {(AbShape *)&rect0, {35, 38}, {0,0}, {0,0}, COLOR_GREEN, &layer3};
+Layer layer1 = {(AbShape *)&rect0, {60, 38}, {0,0}, {0,0}, COLOR_ORANGE, &layer2};
+Layer layer0 = {(AbShape *)&rect0, {85, 38}, {0,0}, {0,0}, COLOR_VIOLET, &layer1};
 
 /** Moving Layer
  *  Linked list of layer references
@@ -73,23 +46,16 @@ Layer layer0 = {		/**< Layer with an orange circle */
  */
 typedef struct MovLayer_s {
   Layer *layer;
-  Vec2 velocity;
+  Vec2 *velocity;
   struct MovLayer_s *next;
 } MovLayer;
 
-/* initial value of {0,0} will be overwritten */
-MovLayer ml3 = { &layer3, {1,1}, 0 }; /**< not all layers move */
-MovLayer ml1 = { &layer1, {1,2}, &ml3 }; 
-MovLayer ml0 = { &layer0, {2,1}, &ml1 }; 
+Vec2 paddleV = {2, 0};
+Vec2 ballV = {4, 3};
+MovLayer ml1 = {&paddleLayer, &paddleV, 0};
+MovLayer ml0 = {&ballLayer, &ballV, &ml1}; 
 
-
-
-
-
-
-
-movLayerDraw(MovLayer *movLayers, Layer *layers)
-{
+movLayerDraw(MovLayer *movLayers, Layer *layers){
   int row, col;
   MovLayer *movLayer;
 
@@ -134,57 +100,53 @@ movLayerDraw(MovLayer *movLayers, Layer *layers)
  *  \param ml The moving shape to be advanced
  *  \param fence The region which will serve as a boundary for ml
  */
-void mlAdvance(MovLayer *ml, Region *fence)
-{
+void mlAdvance(MovLayer *ml, Region *fence){
   Vec2 newPos;
   u_char axis;
   Region shapeBoundary;
   for (; ml; ml = ml->next) {
-    vec2Add(&newPos, &ml->layer->posNext, &ml->velocity);
+    vec2Add(&newPos, &ml->layer->posNext, ml->velocity);
     abShapeGetBounds(ml->layer->abShape, &newPos, &shapeBoundary);
     for (axis = 0; axis < 2; axis ++) {
       if ((shapeBoundary.topLeft.axes[axis] < fence->topLeft.axes[axis]) ||
 	  (shapeBoundary.botRight.axes[axis] > fence->botRight.axes[axis]) ) {
-	int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
+	int velocity = ml->velocity->axes[axis] = -ml->velocity->axes[axis];
 	newPos.axes[axis] += (2*velocity);
       }	/**< if outside of fence */
+
+      
     } /**< for axis */
     ml->layer->posNext = newPos;
   } /**< for ml */
 }
 
-
-u_int bgColor = COLOR_BLUE;     /**< The background color */
+u_int bgColor = COLOR_BLACK;     /**< The background color */
 int redrawScreen = 1;           /**< Boolean for whether screen needs to be redrawn */
 
 Region fieldFence;		/**< fence around playing field  */
 
-
 /** Initializes everything, enables interrupts and green LED, 
  *  and handles the rendering for the screen
  */
-void main()
-{
-  P1DIR |= GREEN_LED;		/**< Green led on when CPU on */		
+void main(){
+  P1DIR |= GREEN_LED;		/**< Green led on when CPU on */
   P1OUT |= GREEN_LED;
 
   configureClocks();
   lcd_init();
   shapeInit();
   p2sw_init(1);
-
-  shapeInit();
-
+  
   layerInit(&layer0);
   layerDraw(&layer0);
 
+  drawString5x7(40,2, "Score: ", COLOR_GREEN, COLOR_BLACK);
+  drawString5x7(77,2, "0", COLOR_GREEN, COLOR_BLACK);
 
   layerGetBounds(&fieldLayer, &fieldFence);
 
-
   enableWDTInterrupts();      /**< enable periodic interrupt */
   or_sr(0x8);	              /**< GIE (enable interrupts) */
-
 
   for(;;) { 
     while (!redrawScreen) { /**< Pause CPU if screen doesn't need updating */
@@ -194,20 +156,20 @@ void main()
     P1OUT |= GREEN_LED;       /**< Green led on when CPU on */
     redrawScreen = 0;
     movLayerDraw(&ml0, &layer0);
+
+    //P1OUT |= (RED_LED & p2sw_read());
   }
 }
 
 /** Watchdog timer interrupt handler. 15 interrupts/sec */
-void wdt_c_handler()
-{
+void wdt_c_handler(){
   static short count = 0;
   P1OUT |= GREEN_LED;		      /**< Green LED on when cpu on */
   count ++;
   if (count == 15) {
     mlAdvance(&ml0, &fieldFence);
-    if (p2sw_read())
-      redrawScreen = 1;
+    redrawScreen = 1;
     count = 0;
-  }
+  } 
   P1OUT &= ~GREEN_LED;		    /**< Green LED off when cpu off */
 }

@@ -17,10 +17,10 @@
 #define GREEN_LED BIT6
 #define RED_LED BIT0
 
+char str[] = {'0','0', 0};
 
 AbRect paddle = {abRectGetBounds, abRectCheck, {10,2}};
 AbRect rect0 = {abRectGetBounds, abRectCheck, {10,4}};
-
 AbRectOutline fieldOutline = {	/* playing field */
   abRectOutlineGetBounds, abRectOutlineCheck,   
   {screenWidth/2 - 5, screenHeight/2 - 10}
@@ -119,25 +119,23 @@ void mlAdvance(MovLayer *ml, Region *fence){
 }
 
 void switchHandler(u_int switches){
-  if(!(switches&1))
-    paddleV.axes[0] = -4;
-  else if(!(switches&8))
-    paddleV.axes[0] = 4;
+  if(!(switches&1)) //sw1
+    paddleV.axes[0] = -8;
+  else if(!(switches&8)) //sw4
+    paddleV.axes[0] = 8;
   else
     paddleV.axes[0] = 0;
-
-    
 }
 
-void checkCollision(Layer *ballLayer, Layer *l){
-  Vec2 newPos;
-  Region shapeBoundary, ballBoundary;
-  abShapeGetBounds(ballLayer->abShape, &ballLayer->pos, &ballBoundary);
+void checkCollision(Layer *l, int width, int height){
+  int offsetx = (ballLayer.posNext.axes[0]+3) - l->pos.axes[0];
+  int offsety = (ballLayer.posNext.axes[0]+3) - l->pos.axes[1];
 
-  int i;
-  for(i=0; i<10; i++){
-    abShapeGetBounds(l->abShape, &l->pos, &shapeBoundary);
-    l = l->next;
+  if((ballLayer.pos.axes[1] + 3) >= (l->pos.axes[1] - height) &&
+     ballLayer.pos.axes[0] > l->pos.axes[0]-width &&
+     ballLayer.pos.axes[0] < l->pos.axes[0]+width){
+    int v = ml0.velocity->axes[1] = -ml0.velocity->axes[1];
+    ballLayer.posNext.axes[1] += (2*v);
   }
 }
 
@@ -162,7 +160,6 @@ void main(){
   layerDraw(&layer0);
 
   drawString5x7(40,2, "Score: ", COLOR_GREEN, COLOR_BLACK);
-  char str[] = {'0','0', 0};
 
   layerGetBounds(&fieldLayer, &fieldFence);
 
@@ -184,12 +181,13 @@ void main(){
 /** Watchdog timer interrupt handler. 15 interrupts/sec */
 void wdt_c_handler(){
   static short count = 0;
+  static short i = 0;
   P1OUT |= GREEN_LED;		      /**< Green LED on when cpu on */
   count ++;
   if (count == 15) {
     switchHandler(p2sw_read());
     mlAdvance(&ml0, &fieldFence);
-    checkCollision(&ballLayer, &layer0);
+    checkCollision(&paddleLayer, 10, 2);
     redrawScreen = 1;
     count = 0;
   } 

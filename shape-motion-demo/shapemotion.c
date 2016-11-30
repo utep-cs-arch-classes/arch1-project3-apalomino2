@@ -12,7 +12,7 @@
 #include <lcddraw.h>
 #include <shape.h>
 #include <abCircle.h>
-#include <p2switches.h>
+#include "p2switches.h"
 
 #define GREEN_LED BIT6
 #define RED_LED BIT0
@@ -162,7 +162,7 @@ void main(){
   layerDraw(&layer0);
 
   drawString5x7(40,2, "Score: ", COLOR_GREEN, COLOR_BLACK);
-  drawString5x7(77,2, "0", COLOR_GREEN, COLOR_BLACK);
+  char str[] = {'0','0', 0};
 
   layerGetBounds(&fieldLayer, &fieldFence);
 
@@ -177,6 +177,7 @@ void main(){
     P1OUT |= GREEN_LED;       /**< Green led on when CPU on */
     redrawScreen = 0;
     movLayerDraw(&ml0, &layer0);
+    drawString5x7(77,2, str, COLOR_GREEN, COLOR_BLACK);
   }
 }
 
@@ -188,7 +189,7 @@ void wdt_c_handler(){
   if (count == 15) {
     switchHandler(p2sw_read());
     mlAdvance(&ml0, &fieldFence);
-    //checkCollision(&ballLayer, &layer0);
+    checkCollision(&ballLayer, &layer0);
     redrawScreen = 1;
     count = 0;
   } 

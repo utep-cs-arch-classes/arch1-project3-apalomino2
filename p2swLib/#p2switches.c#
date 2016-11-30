@@ -17,7 +17,6 @@ switch_update_interrupt_sense()
 void 
 p2sw_init(unsigned char mask)
 {
-  paddleV = (Vec2 *)malloc(sizeof(Vec2));
   switch_mask = mask;
   P2REN |= mask;    /* enables resistors for switches */
   P2IE = mask;      /* enable interrupts from switches */

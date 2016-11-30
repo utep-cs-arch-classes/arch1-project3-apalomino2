@@ -6,4 +6,6 @@
 unsigned int p2sw_read();
 void p2sw_init(unsigned char mask);
 
+extern Vec2 paddleV;
+
 #endif // included

@@ -12,6 +12,7 @@
 #include <lcddraw.h>
 #include <shape.h>
 #include <abCircle.h>
+#include <p2switches.h>
 
 #define GREEN_LED BIT6
 #define RED_LED BIT0
@@ -50,8 +51,8 @@ typedef struct MovLayer_s {
   struct MovLayer_s *next;
 } MovLayer;
 
-Vec2 paddleV = {2, 0};
 Vec2 ballV = {4, 3};
+Vec2 paddleV = {0, 0};
 MovLayer ml1 = {&paddleLayer, &paddleV, 0};
 MovLayer ml0 = {&ballLayer, &ballV, &ml1}; 
 
@@ -66,7 +67,6 @@ movLayerDraw(MovLayer *movLayers, Layer *layers){
     l->pos = l->posNext;
   }
   or_sr(8);			/**< disable interrupts (GIE on) */
-
 
   for (movLayer = movLayers; movLayer; movLayer = movLayer->next) { /* for each moving layer */
     Region bounds;
@@ -113,11 +113,32 @@ void mlAdvance(MovLayer *ml, Region *fence){
 	int velocity = ml->velocity->axes[axis] = -ml->velocity->axes[axis];
 	newPos.axes[axis] += (2*velocity);
       }	/**< if outside of fence */
-
-      
     } /**< for axis */
     ml->layer->posNext = newPos;
   } /**< for ml */
+}
+
+void switchHandler(u_int switches){
+  if(!(switches&1))
+    paddleV.axes[0] = -4;
+  else if(!(switches&8))
+    paddleV.axes[0] = 4;
+  else
+    paddleV.axes[0] = 0;
+
+    
+}
+
+void checkCollision(Layer *ballLayer, Layer *l){
+  Vec2 newPos;
+  Region shapeBoundary, ballBoundary;
+  abShapeGetBounds(ballLayer->abShape, &ballLayer->pos, &ballBoundary);
+
+  int i;
+  for(i=0; i<10; i++){
+    abShapeGetBounds(l->abShape, &l->pos, &shapeBoundary);
+    l = l->next;
+  }
 }
 
 u_int bgColor = COLOR_BLACK;     /**< The background color */
@@ -135,7 +156,7 @@ void main(){
   configureClocks();
   lcd_init();
   shapeInit();
-  p2sw_init(1);
+  p2sw_init(15);
   
   layerInit(&layer0);
   layerDraw(&layer0);
@@ -156,8 +177,6 @@ void main(){
     P1OUT |= GREEN_LED;       /**< Green led on when CPU on */
     redrawScreen = 0;
     movLayerDraw(&ml0, &layer0);
-
-    //P1OUT |= (RED_LED & p2sw_read());
   }
 }
 
@@ -167,7 +186,9 @@ void wdt_c_handler(){
   P1OUT |= GREEN_LED;		      /**< Green LED on when cpu on */
   count ++;
   if (count == 15) {
+    switchHandler(p2sw_read());
     mlAdvance(&ml0, &fieldFence);
+    //checkCollision(&ballLayer, &layer0);
     redrawScreen = 1;
     count = 0;
   } 

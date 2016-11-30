@@ -9,7 +9,7 @@ main()
 
   P1DIR |= RED_LED;
   for(;;) {
-    P1OUT = (1 & p2sw_read());
+    P1OUT = (RED_LED & p2sw_read());
   }
 }
 
